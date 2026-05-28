@@ -45,7 +45,7 @@
   .td-change.up { color:var(--accent); } .td-change.down { color:var(--accent2); } .td-change.neutral { color:var(--muted); }
   .loading { text-align:center; padding:80px; color:var(--muted); font-family:'DM Mono',monospace; font-size:13px; letter-spacing:2px; }
   .error { text-align:center; padding:60px; color:var(--accent2); font-size:13px; line-height:1.8; }
-  .custom-tooltip { position:fixed; background:var(--surface); border:1px solid var(--accent); padding:12px 16px; pointer-events:none; z-index:1000; min-width:240px; display:none; }
+  .custom-tooltip { position:fixed; background:var(--surface); border:1px solid var(--accent); padding:12px 16px; pointer-events:none; z-index:1000; min-width:240px; display:none; box-shadow:0 4px 20px rgba(0,255,136,0.1); }
   .tooltip-date { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:6px; }
   .tooltip-price { font-family:'DM Mono',monospace; font-size:18px; font-weight:500; color:var(--accent); margin-bottom:8px; }
   .tooltip-disclosure { border-top:1px solid var(--border); padding-top:8px; margin-top:4px; }
@@ -95,51 +95,46 @@ const STOCKS = ['삼성전자','SK하이닉스','현대차','카카오','NAVER',
 
 let currentStock = null;
 let chartInstance = null;
-let disclosureData = {}; // 이벤트DB 캐시
-let priceCache = {};     // 종목별 주가 캐시
+let disclosureData = {};
+let priceCache = {};
 let discLoaded = false;
 
-function jsonp(sheetName, timeout=20000) {
-  return new Promise((resolve, reject) => {
-    const cb = 'cb_' + Math.random().toString(36).slice(2);
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&callback=${cb}`;
-    const s = document.createElement('script');
-    s.src = url;
-    const timer = setTimeout(() => { reject(new Error('타임아웃: ' + sheetName)); }, timeout);
-    window[cb] = d => { clearTimeout(timer); delete window[cb]; document.body.removeChild(s); resolve(d); };
-    s.onerror = () => { clearTimeout(timer); reject(new Error('로드실패: ' + sheetName)); };
-    document.body.appendChild(s);
+// CSV fetch 방식 (빠름)
+async function fetchCSV(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const text = await res.text();
+  return parseCSV(text);
+}
+
+function parseCSV(text) {
+  return text.trim().split('\n').map(line => {
+    const cols = []; let cur = '', inQ = false;
+    for (const c of line) {
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    cols.push(cur.trim());
+    return cols;
   });
 }
 
-function parseDate(cell) {
-  if (!cell) return null;
-  if (cell.f) {
-    const s = String(cell.f).replace(/[^0-9]/g,'');
-    if (s.length === 8) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
-  }
-  if (cell.v !== undefined && cell.v !== null) {
-    const s = String(Math.round(Number(cell.v)));
-    if (s.length === 8) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
-  }
+function toDate(raw) {
+  const s = String(raw).replace(/[^0-9]/g,'');
+  if (s.length === 8) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
   return null;
 }
 
-function val(cell) {
-  if (!cell) return '';
-  return cell.f !== undefined ? cell.f : (cell.v !== undefined ? String(cell.v) : '');
-}
-
-// 이벤트DB 한 번만 로드
 async function loadDisclosures() {
   if (discLoaded) return;
-  const data = await jsonp('이벤트DB');
-  data.table.rows.forEach(row => {
-    if (!row.c || !row.c[0]) return;
-    const date = parseDate(row.c[0]);
-    const name = val(row.c[2]);
-    const title = val(row.c[4]);
-    const change = val(row.c[7]);
+  const rows = await fetchCSV('이벤트DB');
+  rows.slice(1).forEach(r => {
+    const date = toDate(r[0]);
+    const name = r[2];
+    const title = r[4];
+    const change = r[7];
     if (!date || !name || !title) return;
     if (!disclosureData[name]) disclosureData[name] = [];
     disclosureData[name].push({ date, title, change });
@@ -147,15 +142,13 @@ async function loadDisclosures() {
   discLoaded = true;
 }
 
-// 종목별 주가 탭 로드
 async function loadStockPrice(name) {
   if (priceCache[name]) return priceCache[name];
-  const data = await jsonp(name);
+  const rows = await fetchCSV(name);
   const prices = [];
-  data.table.rows.forEach(row => {
-    if (!row.c || !row.c[0]) return;
-    const date = parseDate(row.c[0]);
-    const price = parseFloat(val(row.c[2]));
+  rows.slice(1).forEach(r => {
+    const date = toDate(r[0]);
+    const price = parseFloat(r[2]);
     if (!date || isNaN(price) || price === 0) return;
     prices.push({ date, price });
   });
@@ -164,7 +157,6 @@ async function loadStockPrice(name) {
   return prices;
 }
 
-// 버튼 렌더
 function renderButtons() {
   document.getElementById('stockBtns').innerHTML = STOCKS.map(s =>
     `<button class="stock-btn ${s===currentStock?'active':''}" onclick="selectStock('${s}')">${s}</button>`
@@ -176,18 +168,13 @@ async function selectStock(name) {
   currentStock = name;
   renderButtons();
   document.getElementById('currentStockName').textContent = name;
-  document.getElementById('chartContainer').innerHTML = '<div class="loading">주가 데이터 로딩 중...</div>';
-  document.getElementById('tableContainer').innerHTML = '<div class="loading">공시 데이터 로딩 중...</div>';
+  document.getElementById('chartContainer').innerHTML = '<div class="loading">로딩 중...</div>';
+  document.getElementById('tableContainer').innerHTML = '<div class="loading">로딩 중...</div>';
 
   try {
-    const [prices] = await Promise.all([
-      loadStockPrice(name),
-      loadDisclosures()
-    ]);
-
+    const [prices] = await Promise.all([loadStockPrice(name), loadDisclosures()]);
     const disclosures = disclosureData[name] || [];
 
-    // 최신 주가 표시
     if (prices.length > 0) {
       const latest = prices[prices.length-1];
       const prev = prices[prices.length-2];
@@ -199,12 +186,11 @@ async function selectStock(name) {
         el.className = 'price-change ' + (chg >= 0 ? 'up' : 'down');
       }
     }
-
     renderChart(prices, disclosures);
     renderTable(disclosures);
-
   } catch(e) {
-    document.getElementById('chartContainer').innerHTML = `<div class="error">⚠ 로드 실패: ${e.message}</div>`;
+    document.getElementById('chartContainer').innerHTML = `<div class="error">⚠ 로드 실패: ${e.message}<br><small>구글 시트가 공개(뷰어)로 설정되어 있는지 확인해주세요</small></div>`;
+    document.getElementById('tableContainer').innerHTML = '';
   }
 }
 
@@ -228,7 +214,12 @@ function renderChart(prices, disclosures) {
           borderColor:'#00ff88', borderWidth:1.5,
           pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:'#00ff88',
           fill:true,
-          backgroundColor: ctx => { const g=ctx.chart.ctx.createLinearGradient(0,0,0,400); g.addColorStop(0,'rgba(0,255,136,0.15)'); g.addColorStop(1,'rgba(0,255,136,0)'); return g; },
+          backgroundColor: ctx => {
+            const g = ctx.chart.ctx.createLinearGradient(0,0,0,400);
+            g.addColorStop(0,'rgba(0,255,136,0.15)');
+            g.addColorStop(1,'rgba(0,255,136,0)');
+            return g;
+          },
           tension:0.3
         },
         {
@@ -257,7 +248,7 @@ function renderChart(prices, disclosures) {
 
 function externalTooltip(context, discMap) {
   const tooltip = document.getElementById('customTooltip');
-  const {chart,tooltip:tt} = context;
+  const {chart, tooltip:tt} = context;
   if (tt.opacity===0) { tooltip.style.display='none'; return; }
   const date = tt.dataPoints?.[0]?.label;
   const price = tt.dataPoints?.[0]?.raw;
@@ -266,7 +257,7 @@ function externalTooltip(context, discMap) {
   const discDiv = document.getElementById('ttDisclosure');
   if (discMap[date]?.length>0) {
     const d = discMap[date][0];
-    let t = d.title.length>40?d.title.slice(0,40)+'…':d.title;
+    let t = d.title.length>40 ? d.title.slice(0,40)+'…' : d.title;
     if (discMap[date].length>1) t+=` 외 ${discMap[date].length-1}건`;
     document.getElementById('ttDiscTitle').textContent = t;
     const raw = String(d.change).replace('%','').trim();
@@ -276,9 +267,14 @@ function externalTooltip(context, discMap) {
       const pct = Math.abs(chgVal)<1 ? chgVal*100 : chgVal;
       changeEl.textContent = (pct>=0?'▲ +':'▼ ')+Math.abs(pct).toFixed(2)+'%';
       changeEl.style.color = pct>=0?'#00ff88':'#ff4466';
-    } else { changeEl.textContent = d.change||'—'; changeEl.style.color='#5a5a7a'; }
+    } else {
+      changeEl.textContent = d.change||'—';
+      changeEl.style.color = '#5a5a7a';
+    }
     discDiv.style.display='block';
-  } else { discDiv.style.display='none'; }
+  } else {
+    discDiv.style.display='none';
+  }
   const pos = chart.canvas.getBoundingClientRect();
   tooltip.style.display='block';
   let left = pos.left+tt.caretX+12;
@@ -306,9 +302,7 @@ function renderTable(disclosures) {
   c.innerHTML=`<table><thead><tr><th>날짜</th><th>공시 제목</th><th style="text-align:right">당일 변동률</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// 초기화
 renderButtons();
-// 삼성전자 자동 로드
 selectStock('삼성전자');
 </script>
 </body>
