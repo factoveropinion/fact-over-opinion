@@ -165,7 +165,7 @@
 
 <script>
 const STOCKS = ['삼성전자','SK하이닉스','현대차','카카오','NAVER','LG에너지솔루션','한화에어로스페이스','KB금융','HD현대','두산에너빌리티'];
-const DATA_URL = 'stock_data.json';
+const DATA_URL = 'https://drive.google.com/uc?export=download&id=1cN1d7-NI2WIhxgyDajyX8VTg7_SQdFgt';
 
 const TYPE_COLORS = {
   '실적발표': '#00aaff', '배당': '#00ff88', '자사주': '#aa44ff',
@@ -441,10 +441,17 @@ function externalTooltip(context, discMap, patternData, prices) {
 
   const pos = chart.canvas.getBoundingClientRect();
   tooltip.style.display='block';
-  let left = pos.left+tt.caretX+12;
-  if (left+260>window.innerWidth) left=pos.left+tt.caretX-260;
-  tooltip.style.left=left+'px';
-  tooltip.style.top=(pos.top+tt.caretY-20+window.scrollY)+'px';
+  const mx = window._mouseX || 0;
+  const my = window._mouseY || 0;
+  const tw = tooltip.offsetWidth || 260;
+  const th = tooltip.offsetHeight || 100;
+  let left = mx + 16;
+  let top = my - th / 2 + window.scrollY;
+  if (left + tw > window.innerWidth - 8) left = mx - tw - 16;
+  if (top < window.scrollY + 8) top = window.scrollY + 8;
+  if (top + th > window.scrollY + window.innerHeight - 8) top = window.scrollY + window.innerHeight - th - 8;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
 }
 
 function renderTypeFilter(disclosures) {
@@ -487,6 +494,9 @@ function renderTableRows(disclosures) {
   }).join('');
   c.innerHTML=`<table><thead><tr><th>날짜</th><th>유형</th><th>공시 제목</th><th style="text-align:right">변동률</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+
+// 마우스 위치 추적
+document.addEventListener('mousemove', e => { window._mouseX = e.clientX; window._mouseY = e.clientY; });
 
 // 시작
 renderButtons();
