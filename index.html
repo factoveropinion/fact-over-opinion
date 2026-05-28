@@ -7,7 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0a0a0f; --surface:#12121a; --border:#1e1e2e; --accent:#00ff88; --accent2:#ff4466; --text:#e8e8f0; --muted:#5a5a7a; --card:#16161f; }
+  :root { --bg:#0a0a0f; --surface:#12121a; --border:#1e1e2e; --accent:#00ff88; --accent2:#ff4466; --accent3:#ffaa00; --text:#e8e8f0; --muted:#5a5a7a; --card:#16161f; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--bg); color:var(--text); font-family:'Noto Sans KR',sans-serif; min-height:100vh; }
   body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
@@ -22,25 +22,59 @@
   .stock-btn:hover { border-color:var(--accent); color:var(--accent); }
   .stock-btn.active { background:var(--accent); border-color:var(--accent); color:#000; font-weight:500; }
   .chart-wrap { background:var(--card); border:1px solid var(--border); padding:32px; margin-bottom:24px; }
-  .chart-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+  .chart-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
   .stock-name { font-size:22px; font-weight:700; }
   .price-value { font-family:'DM Mono',monospace; font-size:28px; font-weight:500; color:var(--accent); text-align:right; }
   .price-change { font-family:'DM Mono',monospace; font-size:13px; margin-top:2px; text-align:right; }
   .price-change.up { color:var(--accent); } .price-change.down { color:var(--accent2); }
   canvas { max-height:400px; }
-  .legend { display:flex; gap:24px; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+
+  /* 패턴 토글 */
+  .pattern-toggle-wrap { display:flex; align-items:center; gap:16px; margin-bottom:20px; padding:14px 18px; background:var(--surface); border:1px solid var(--border); }
+  .toggle-switch { position:relative; width:44px; height:24px; cursor:pointer; }
+  .toggle-switch input { opacity:0; width:0; height:0; }
+  .toggle-slider { position:absolute; inset:0; background:#2a2a3a; border-radius:24px; transition:0.3s; }
+  .toggle-slider:before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--muted); border-radius:50%; transition:0.3s; }
+  input:checked + .toggle-slider { background:rgba(255,170,0,0.2); border:1px solid var(--accent3); }
+  input:checked + .toggle-slider:before { transform:translateX(20px); background:var(--accent3); }
+  .toggle-label { font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); }
+  .toggle-label.active { color:var(--accent3); }
+  .pattern-info { font-size:12px; color:var(--muted); margin-left:auto; }
+
+  /* 패턴 선택 */
+  .pattern-select-wrap { display:none; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+  .pattern-select-wrap.visible { display:flex; }
+  .type-btn { font-family:'DM Mono',monospace; font-size:11px; padding:5px 12px; background:var(--surface); border:1px solid var(--border); color:var(--muted); cursor:pointer; transition:all 0.2s; border-radius:2px; }
+  .type-btn:hover { border-color:var(--accent3); color:var(--accent3); }
+  .type-btn.active { background:rgba(255,170,0,0.15); border-color:var(--accent3); color:var(--accent3); }
+
+  .legend { display:flex; gap:24px; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap; }
   .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; }
   .legend-dot { width:8px; height:8px; border-radius:50%; }
+
+  /* 패턴 분석 박스 */
+  .pattern-stats { display:none; gap:16px; margin-bottom:20px; }
+  .pattern-stats.visible { display:flex; flex-wrap:wrap; }
+  .stat-card { flex:1; min-width:140px; background:var(--surface); border:1px solid rgba(255,170,0,0.2); padding:14px 18px; }
+  .stat-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+  .stat-value { font-family:'DM Mono',monospace; font-size:20px; font-weight:500; }
+  .stat-value.up { color:var(--accent); } .stat-value.down { color:var(--accent2); } .stat-value.neutral { color:var(--accent3); }
+
   .table-section { background:var(--card); border:1px solid var(--border); overflow:hidden; }
-  .table-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .table-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
   .table-title { font-family:'DM Mono',monospace; font-size:12px; color:var(--accent); letter-spacing:2px; text-transform:uppercase; }
   .table-count { font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); }
+  .type-filter-wrap { display:flex; gap:6px; flex-wrap:wrap; }
+  .filter-btn { font-family:'DM Mono',monospace; font-size:10px; padding:3px 10px; background:var(--surface); border:1px solid var(--border); color:var(--muted); cursor:pointer; }
+  .filter-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .filter-btn.active { background:rgba(0,255,136,0.1); border-color:var(--accent); color:var(--accent); }
   table { width:100%; border-collapse:collapse; }
   th { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); text-align:left; padding:12px 24px; letter-spacing:1px; text-transform:uppercase; border-bottom:1px solid var(--border); }
-  td { padding:14px 24px; font-size:13px; border-bottom:1px solid rgba(30,30,46,0.5); }
+  td { padding:12px 24px; font-size:13px; border-bottom:1px solid rgba(30,30,46,0.5); }
   tr:last-child td { border-bottom:none; }
   tr:hover td { background:rgba(0,255,136,0.02); }
   .td-date { font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); white-space:nowrap; }
+  .td-type { font-family:'DM Mono',monospace; font-size:10px; padding:2px 8px; border-radius:2px; white-space:nowrap; }
   .td-change { font-family:'DM Mono',monospace; font-size:13px; font-weight:500; white-space:nowrap; text-align:right; }
   .td-change.up { color:var(--accent); } .td-change.down { color:var(--accent2); } .td-change.neutral { color:var(--muted); }
   .loading { text-align:center; padding:80px; color:var(--muted); font-family:'DM Mono',monospace; font-size:13px; letter-spacing:2px; }
@@ -52,6 +86,9 @@
   .tooltip-disc-label { font-size:10px; color:var(--accent); font-family:'DM Mono',monospace; letter-spacing:1px; margin-bottom:4px; }
   .tooltip-disc-title { font-size:12px; color:var(--text); line-height:1.4; margin-bottom:4px; }
   .tooltip-disc-change { font-family:'DM Mono',monospace; font-size:13px; font-weight:500; }
+  .tooltip-pattern { border-top:1px solid var(--border); padding-top:8px; margin-top:8px; }
+  .tooltip-pattern-label { font-size:10px; color:var(--accent3); font-family:'DM Mono',monospace; letter-spacing:1px; margin-bottom:4px; }
+  .tooltip-pattern-val { font-family:'DM Mono',monospace; font-size:13px; }
 </style>
 </head>
 <body>
@@ -62,20 +99,53 @@
     <p class="subtitle">DART 공시 데이터와 주가 변동의 1:1 대조 — 역사는 반복된다</p>
   </header>
   <div class="controls" id="stockBtns"></div>
+
   <div class="chart-wrap">
     <div class="chart-header">
       <div class="stock-name" id="currentStockName">—</div>
       <div><div class="price-value" id="latestPrice">—</div><div class="price-change" id="priceChange">—</div></div>
     </div>
-    <div id="chartContainer"><div class="loading">데이터 로딩 중...</div></div>
+
+    <!-- 패턴 토글 -->
+    <div class="pattern-toggle-wrap">
+      <label class="toggle-switch">
+        <input type="checkbox" id="patternToggle" onchange="togglePattern()">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label" id="toggleLabel">유사 패턴 오버랩 OFF</span>
+      <span class="pattern-info" id="patternInfo"></span>
+    </div>
+
+    <!-- 공시 유형 선택 (패턴 ON 시) -->
+    <div class="pattern-select-wrap" id="patternSelectWrap">
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);align-self:center;">공시 유형:</span>
+    </div>
+
+    <!-- 패턴 통계 -->
+    <div class="pattern-stats" id="patternStats">
+      <div class="stat-card"><div class="stat-label">과거 사례 수</div><div class="stat-value neutral" id="statCount">—</div></div>
+      <div class="stat-card"><div class="stat-label">평균 당일 변동</div><div class="stat-value" id="statAvg">—</div></div>
+      <div class="stat-card"><div class="stat-label">상승 확률</div><div class="stat-value neutral" id="statUp">—</div></div>
+      <div class="stat-card"><div class="stat-label">최대 상승</div><div class="stat-value up" id="statMax">—</div></div>
+      <div class="stat-card"><div class="stat-label">최대 하락</div><div class="stat-value down" id="statMin">—</div></div>
+    </div>
+
+    <div id="chartContainer"><div class="loading">종목을 선택해주세요</div></div>
+
     <div class="legend">
       <div class="legend-item"><div class="legend-dot" style="background:#00ff88"></div>종가</div>
       <div class="legend-item"><div class="legend-dot" style="background:#ff4466;border-radius:0;transform:rotate(45deg)"></div>공시 발생일</div>
+      <div class="legend-item" id="legendPattern" style="display:none"><div class="legend-dot" style="background:#ffaa00;border-radius:0"></div>유사 패턴 평균 괴리</div>
     </div>
   </div>
+
   <div class="table-section">
-    <div class="table-header"><div class="table-title">공시 이력</div><div class="table-count" id="disclosureCount">—</div></div>
-    <div id="tableContainer"><div class="loading">데이터 로딩 중...</div></div>
+    <div class="table-header">
+      <div class="table-title">공시 이력</div>
+      <div class="type-filter-wrap" id="typeFilterWrap"></div>
+      <div class="table-count" id="disclosureCount">—</div>
+    </div>
+    <div id="tableContainer"><div class="loading">종목을 선택해주세요</div></div>
   </div>
 </div>
 
@@ -87,21 +157,28 @@
     <div class="tooltip-disc-title" id="ttDiscTitle"></div>
     <div class="tooltip-disc-change" id="ttDiscChange"></div>
   </div>
+  <div class="tooltip-pattern" id="ttPattern" style="display:none">
+    <div class="tooltip-pattern-label">📊 패턴 평균</div>
+    <div class="tooltip-pattern-val" id="ttPatternVal"></div>
+  </div>
 </div>
 
 <script>
 const STOCKS = ['삼성전자','SK하이닉스','현대차','카카오','NAVER','LG에너지솔루션','한화에어로스페이스','KB금융','HD현대','두산에너빌리티'];
-const DATA_URL = 'https://drive.google.com/uc?export=download&id=1eKHKoHOMxz12MQVFz3WBkGTnoi15nzZY';
+const DATA_URL = 'https://drive.google.com/uc?export=download&id=1cN1d7-NI2WIhxgyDajyX8VTg7_SQdFgt';
+
+const TYPE_COLORS = {
+  '실적발표': '#00aaff', '배당': '#00ff88', '자사주': '#aa44ff',
+  '대규모계약': '#ff6600', '투자결정': '#ffaa00', '지분변동': '#ff4466',
+  '임원변동': '#888888', '풍문해명': '#ff88aa', '기업설명회': '#44ffaa', '기타공시': '#445566'
+};
 
 let currentStock = null;
 let chartInstance = null;
 let allData = null;
-
-async function loadData() {
-  const res = await fetch(DATA_URL);
-  if (!res.ok) throw new Error('데이터 로드 실패');
-  allData = await res.json();
-}
+let patternOn = false;
+let selectedType = null;
+let activeTypeFilter = '전체';
 
 function renderButtons() {
   document.getElementById('stockBtns').innerHTML = STOCKS.map(s =>
@@ -111,71 +188,208 @@ function renderButtons() {
 
 function selectStock(name) {
   currentStock = name;
+  patternOn = false;
+  selectedType = null;
+  activeTypeFilter = '전체';
+  document.getElementById('patternToggle').checked = false;
+  document.getElementById('toggleLabel').textContent = '유사 패턴 오버랩 OFF';
+  document.getElementById('toggleLabel').classList.remove('active');
+  document.getElementById('patternSelectWrap').classList.remove('visible');
+  document.getElementById('patternStats').classList.remove('visible');
+  document.getElementById('legendPattern').style.display = 'none';
   renderButtons();
   document.getElementById('currentStockName').textContent = name;
 
-  const prices = (allData.prices[name] || []).map(p => ({date:p[0], price:p[1]}));
-  const disclosures = allData.disclosures.filter(d => d.name === name);
+  const prices = (allData.prices[name]||[]).map(p=>({date:p[0],price:p[1]}));
+  const disclosures = allData.disclosures.filter(d=>d.name===name);
 
   if (prices.length > 0) {
     const latest = prices[prices.length-1];
     const prev = prices[prices.length-2];
-    document.getElementById('latestPrice').textContent = Number(latest.price).toLocaleString('ko-KR') + '원';
+    document.getElementById('latestPrice').textContent = Number(latest.price).toLocaleString('ko-KR')+'원';
     if (prev) {
-      const chg = ((latest.price - prev.price) / prev.price * 100).toFixed(2);
+      const chg = ((latest.price-prev.price)/prev.price*100).toFixed(2);
       const el = document.getElementById('priceChange');
-      el.textContent = (chg > 0 ? '▲ +' : '▼ ') + Math.abs(chg) + '%';
-      el.className = 'price-change ' + (chg >= 0 ? 'up' : 'down');
+      el.textContent = (chg>0?'▲ +':'▼ ')+Math.abs(chg)+'%';
+      el.className = 'price-change '+(chg>=0?'up':'down');
     }
   }
 
-  renderChart(prices, disclosures);
+  // 공시 유형 버튼 생성
+  const types = ['전체', ...new Set(disclosures.map(d=>d.type).filter(Boolean))];
+  document.getElementById('patternSelectWrap').innerHTML =
+    `<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);align-self:center;">공시 유형:</span>` +
+    types.filter(t=>t!=='전체').map(t=>
+      `<button class="type-btn ${selectedType===t?'active':''}" onclick="selectPatternType('${t}')">${t}</button>`
+    ).join('');
+
+  renderChart(prices, disclosures, null);
   renderTable(disclosures);
+  renderTypeFilter(disclosures);
 }
 
-function renderChart(prices, disclosures) {
+function togglePattern() {
+  patternOn = document.getElementById('patternToggle').checked;
+  const label = document.getElementById('toggleLabel');
+  if (patternOn) {
+    label.textContent = '유사 패턴 오버랩 ON';
+    label.classList.add('active');
+    document.getElementById('patternSelectWrap').classList.add('visible');
+    document.getElementById('legendPattern').style.display = 'flex';
+    if (selectedType) applyPattern();
+  } else {
+    label.textContent = '유사 패턴 오버랩 OFF';
+    label.classList.remove('active');
+    document.getElementById('patternSelectWrap').classList.remove('visible');
+    document.getElementById('patternStats').classList.remove('visible');
+    document.getElementById('legendPattern').style.display = 'none';
+    selectedType = null;
+    const prices = (allData.prices[currentStock]||[]).map(p=>({date:p[0],price:p[1]}));
+    const disclosures = allData.disclosures.filter(d=>d.name===currentStock);
+    renderChart(prices, disclosures, null);
+  }
+}
+
+function selectPatternType(type) {
+  selectedType = type;
+  // 버튼 active 업데이트
+  document.querySelectorAll('.type-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === type);
+  });
+  applyPattern();
+}
+
+function applyPattern() {
+  if (!currentStock || !selectedType) return;
+  const prices = (allData.prices[currentStock]||[]).map(p=>({date:p[0],price:p[1]}));
+  const disclosures = allData.disclosures.filter(d=>d.name===currentStock);
+
+  // 선택 유형의 과거 공시 변동률 수집
+  const typeDiscs = disclosures.filter(d=>d.type===selectedType);
+  const changes = typeDiscs.map(d=>{
+    const raw = String(d.change).replace('%','').trim();
+    const v = parseFloat(raw);
+    return Math.abs(v)<1 ? v*100 : v;
+  }).filter(v=>!isNaN(v));
+
+  if (changes.length === 0) {
+    document.getElementById('patternInfo').textContent = '해당 유형의 과거 데이터 없음';
+    return;
+  }
+
+  // 통계 계산
+  const avg = changes.reduce((a,b)=>a+b,0)/changes.length;
+  const upCount = changes.filter(v=>v>=0).length;
+  const upRate = (upCount/changes.length*100).toFixed(0);
+  const maxV = Math.max(...changes);
+  const minV = Math.min(...changes);
+
+  document.getElementById('statCount').textContent = changes.length+'건';
+  const avgEl = document.getElementById('statAvg');
+  avgEl.textContent = (avg>=0?'+':'')+avg.toFixed(2)+'%';
+  avgEl.className = 'stat-value '+(avg>=0?'up':'down');
+  document.getElementById('statUp').textContent = upRate+'%';
+  document.getElementById('statMax').textContent = '+'+maxV.toFixed(2)+'%';
+  document.getElementById('statMin').textContent = minV.toFixed(2)+'%';
+  document.getElementById('patternStats').classList.add('visible');
+  document.getElementById('patternInfo').textContent = `${selectedType} ${changes.length}건 분석`;
+
+  // 패턴 오버랩 차트 데이터: 공시 발생일 주가 기준으로 평균 변동 적용한 가상 경로
+  // 각 공시일로부터 D-5 ~ D+10 구간의 실제 수익률 평균
+  const priceMap = {};
+  prices.forEach(p=>priceMap[p.date]=p.price);
+  const dateList = prices.map(p=>p.date);
+
+  // 각 공시일 기준 상대 수익률 수집
+  const windows = [];
+  typeDiscs.forEach(d=>{
+    const idx = dateList.indexOf(d.date);
+    if (idx<5 || idx>dateList.length-11) return;
+    const base = prices[idx-1]?.price;
+    if (!base) return;
+    const window = [];
+    for (let k=-5; k<=10; k++) {
+      const p = prices[idx+k]?.price;
+      window.push(p ? (p-base)/base*100 : null);
+    }
+    windows.push(window);
+  });
+
+  // 평균 윈도우 계산
+  const avgWindow = Array(16).fill(0).map((_,i)=>{
+    const vals = windows.map(w=>w[i]).filter(v=>v!==null);
+    return vals.length>0 ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  });
+
+  // 각 공시일 위치에 패턴 오버랩 데이터 생성
+  const patternData = new Array(prices.length).fill(null);
+  typeDiscs.forEach(d=>{
+    const idx = dateList.indexOf(d.date);
+    if (idx<5 || idx>prices.length-11) return;
+    const base = prices[idx-1]?.price;
+    if (!base) return;
+    for (let k=-5; k<=10; k++) {
+      const pi = idx+k;
+      if (pi<0 || pi>=prices.length) continue;
+      const avgPct = avgWindow[k+5];
+      if (avgPct===null) continue;
+      const patternPrice = base*(1+avgPct/100);
+      // 여러 공시가 겹치면 평균
+      if (patternData[pi]===null) patternData[pi] = patternPrice;
+      else patternData[pi] = (patternData[pi]+patternPrice)/2;
+    }
+  });
+
+  renderChart(prices, disclosures, patternData);
+}
+
+function renderChart(prices, disclosures, patternData) {
   const container = document.getElementById('chartContainer');
   container.innerHTML = '<canvas id="myChart"></canvas>';
   if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-  if (!prices.length) { container.innerHTML = '<div class="error">주가 데이터 없음</div>'; return; }
+  if (!prices.length) { container.innerHTML='<div class="error">주가 데이터 없음</div>'; return; }
 
   const discMap = {};
-  disclosures.forEach(d => { if (!discMap[d.date]) discMap[d.date]=[]; discMap[d.date].push(d); });
+  disclosures.forEach(d=>{ if(!discMap[d.date]) discMap[d.date]=[]; discMap[d.date].push(d); });
+
+  const datasets = [
+    {
+      label:'종가', data:prices.map(p=>p.price),
+      borderColor:'#00ff88', borderWidth:1.5,
+      pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:'#00ff88',
+      fill:true,
+      backgroundColor: ctx=>{ const g=ctx.chart.ctx.createLinearGradient(0,0,0,400); g.addColorStop(0,'rgba(0,255,136,0.15)'); g.addColorStop(1,'rgba(0,255,136,0)'); return g; },
+      tension:0.3, order:2
+    },
+    {
+      label:'공시', data:prices.map(p=>discMap[p.date]?p.price:null),
+      borderColor:'transparent', backgroundColor:'#ff4466',
+      pointRadius:prices.map(p=>discMap[p.date]?6:0),
+      pointStyle:'rectRot', pointHoverRadius:8, pointHoverBackgroundColor:'#ff4466',
+      showLine:false, order:1
+    }
+  ];
+
+  if (patternData) {
+    datasets.push({
+      label:'패턴평균', data:patternData,
+      borderColor:'#ffaa00', borderWidth:2,
+      borderDash:[6,3],
+      pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:'#ffaa00',
+      fill:false, tension:0.3, order:0
+    });
+  }
 
   const ctx = document.getElementById('myChart').getContext('2d');
   chartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: prices.map(p=>p.date),
-      datasets: [
-        {
-          label:'종가', data:prices.map(p=>p.price),
-          borderColor:'#00ff88', borderWidth:1.5,
-          pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:'#00ff88',
-          fill:true,
-          backgroundColor: ctx => {
-            const g = ctx.chart.ctx.createLinearGradient(0,0,0,400);
-            g.addColorStop(0,'rgba(0,255,136,0.15)');
-            g.addColorStop(1,'rgba(0,255,136,0)');
-            return g;
-          },
-          tension:0.3
-        },
-        {
-          label:'공시', data:prices.map(p=>discMap[p.date]?p.price:null),
-          borderColor:'transparent', backgroundColor:'#ff4466',
-          pointRadius:prices.map(p=>discMap[p.date]?6:0),
-          pointStyle:'rectRot', pointHoverRadius:8, pointHoverBackgroundColor:'#ff4466',
-          showLine:false
-        }
-      ]
-    },
-    options: {
+    type:'line',
+    data:{ labels:prices.map(p=>p.date), datasets },
+    options:{
       responsive:true,
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        tooltip:{enabled:false, external:ctx=>externalTooltip(ctx,discMap)}
+        tooltip:{enabled:false, external:ctx=>externalTooltip(ctx,discMap,patternData,prices)}
       },
       scales:{
         x:{ticks:{color:'#5a5a7a',font:{family:'DM Mono',size:10},maxTicksLimit:12,maxRotation:0},grid:{color:'rgba(30,30,46,0.8)'},border:{color:'#1e1e2e'}},
@@ -185,35 +399,46 @@ function renderChart(prices, disclosures) {
   });
 }
 
-function externalTooltip(context, discMap) {
+function externalTooltip(context, discMap, patternData, prices) {
   const tooltip = document.getElementById('customTooltip');
-  const {chart, tooltip:tt} = context;
+  const {chart,tooltip:tt} = context;
   if (tt.opacity===0) { tooltip.style.display='none'; return; }
   const date = tt.dataPoints?.[0]?.label;
   const price = tt.dataPoints?.[0]?.raw;
   document.getElementById('ttDate').textContent = date;
   document.getElementById('ttPrice').textContent = Number(price).toLocaleString('ko-KR')+'원';
+
   const discDiv = document.getElementById('ttDisclosure');
   if (discMap[date]?.length>0) {
     const d = discMap[date][0];
-    let t = d.title.length>40 ? d.title.slice(0,40)+'…' : d.title;
+    let t = d.title.length>40?d.title.slice(0,40)+'…':d.title;
     if (discMap[date].length>1) t+=` 외 ${discMap[date].length-1}건`;
     document.getElementById('ttDiscTitle').textContent = t;
     const raw = String(d.change).replace('%','').trim();
     const chgVal = parseFloat(raw);
     const changeEl = document.getElementById('ttDiscChange');
     if (!isNaN(chgVal)) {
-      const pct = Math.abs(chgVal)<1 ? chgVal*100 : chgVal;
+      const pct = Math.abs(chgVal)<1?chgVal*100:chgVal;
       changeEl.textContent = (pct>=0?'▲ +':'▼ ')+Math.abs(pct).toFixed(2)+'%';
       changeEl.style.color = pct>=0?'#00ff88':'#ff4466';
-    } else {
-      changeEl.textContent = d.change||'—';
-      changeEl.style.color = '#5a5a7a';
-    }
+    } else { changeEl.textContent=d.change||'—'; changeEl.style.color='#5a5a7a'; }
     discDiv.style.display='block';
-  } else {
-    discDiv.style.display='none';
-  }
+  } else { discDiv.style.display='none'; }
+
+  // 패턴 데이터 툴팁
+  const ttPattern = document.getElementById('ttPattern');
+  if (patternData && prices) {
+    const idx = prices.findIndex(p=>p.date===date);
+    const patVal = idx>=0 ? patternData[idx] : null;
+    if (patVal !== null) {
+      const diff = ((price-patVal)/patVal*100).toFixed(2);
+      const el = document.getElementById('ttPatternVal');
+      el.textContent = `패턴 대비 ${diff>=0?'+':''}${diff}% 괴리`;
+      el.style.color = Math.abs(diff)>3?'#ffaa00':diff>=0?'#00ff88':'#ff4466';
+      ttPattern.style.display='block';
+    } else { ttPattern.style.display='none'; }
+  } else { ttPattern.style.display='none'; }
+
   const pos = chart.canvas.getBoundingClientRect();
   tooltip.style.display='block';
   let left = pos.left+tt.caretX+12;
@@ -222,12 +447,32 @@ function externalTooltip(context, discMap) {
   tooltip.style.top=(pos.top+tt.caretY-20+window.scrollY)+'px';
 }
 
-function renderTable(disclosures) {
+function renderTypeFilter(disclosures) {
+  const types = ['전체', ...new Set(disclosures.map(d=>d.type).filter(Boolean))];
+  document.getElementById('typeFilterWrap').innerHTML = types.map(t=>
+    `<button class="filter-btn ${t===activeTypeFilter?'active':''}" onclick="filterByType('${t}')">${t}</button>`
+  ).join('');
+}
+
+function filterByType(type) {
+  activeTypeFilter = type;
+  renderTypeFilter(allData.disclosures.filter(d=>d.name===currentStock));
+  const disclosures = allData.disclosures.filter(d=>d.name===currentStock && (type==='전체'||d.type===type));
+  renderTableRows(disclosures);
   document.getElementById('disclosureCount').textContent = `총 ${disclosures.length}건`;
+}
+
+function renderTable(disclosures) {
+  renderTypeFilter(disclosures);
+  renderTableRows(disclosures);
+  document.getElementById('disclosureCount').textContent = `총 ${disclosures.length}건`;
+}
+
+function renderTableRows(disclosures) {
   const c = document.getElementById('tableContainer');
   if (!disclosures.length) { c.innerHTML='<div class="loading">공시 데이터 없음</div>'; return; }
   const sorted = [...disclosures].sort((a,b)=>b.date.localeCompare(a.date));
-  const rows = sorted.map(d => {
+  const rows = sorted.map(d=>{
     const raw = String(d.change).replace('%','').trim();
     const chgVal = parseFloat(raw);
     let cls='neutral', txt=d.change||'—';
@@ -236,18 +481,19 @@ function renderTable(disclosures) {
       cls=pct>=0?'up':'down';
       txt=(pct>=0?'▲ +':'▼ ')+Math.abs(pct).toFixed(2)+'%';
     }
-    return `<tr><td class="td-date">${d.date}</td><td>${d.title}</td><td class="td-change ${cls}">${txt}</td></tr>`;
+    const color = TYPE_COLORS[d.type]||'#445566';
+    const typeBadge = `<span class="td-type" style="background:${color}22;color:${color};border:1px solid ${color}44">${d.type||'기타'}</span>`;
+    return `<tr><td class="td-date">${d.date}</td><td>${typeBadge}</td><td>${d.title}</td><td class="td-change ${cls}">${txt}</td></tr>`;
   }).join('');
-  c.innerHTML=`<table><thead><tr><th>날짜</th><th>공시 제목</th><th style="text-align:right">당일 변동률</th></tr></thead><tbody>${rows}</tbody></table>`;
+  c.innerHTML=`<table><thead><tr><th>날짜</th><th>유형</th><th>공시 제목</th><th style="text-align:right">변동률</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // 시작
 renderButtons();
-loadData().then(() => {
-  selectStock('삼성전자');
-}).catch(e => {
-  document.getElementById('chartContainer').innerHTML = `<div class="error">⚠ ${e.message}</div>`;
-});
+fetch(DATA_URL)
+  .then(r=>r.json())
+  .then(data=>{ allData=data; selectStock('삼성전자'); })
+  .catch(e=>{ document.getElementById('chartContainer').innerHTML=`<div class="error">⚠ ${e.message}</div>`; });
 </script>
 </body>
 </html>
