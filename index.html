@@ -490,7 +490,13 @@ function renderTableRows(disclosures) {
     }
     const color = TYPE_COLORS[d.type]||'#445566';
     const typeBadge = `<span class="td-type" style="background:${color}22;color:${color};border:1px solid ${color}44">${d.type||'기타'}</span>`;
-    return `<tr><td class="td-date">${d.date}</td><td>${typeBadge}</td><td>${d.title}</td><td class="td-change ${cls}">${txt}</td></tr>`;
+    const dartUrl = d.rcpNo && d.rcpNo !== '' && d.rcpNo !== 'undefined'
+      ? `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${d.rcpNo}`
+      : null;
+    const titleCell = dartUrl
+      ? `<a href="${dartUrl}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);padding-bottom:1px;cursor:pointer;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text)'">${d.title} <span style="font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;margin-left:4px;">↗</span></a>`
+      : d.title;
+    return `<tr><td class="td-date">${d.date}</td><td>${typeBadge}</td><td>${titleCell}</td><td class="td-change ${cls}">${txt}</td></tr>`;
   }).join('');
   c.innerHTML=`<table><thead><tr><th>날짜</th><th>유형</th><th>공시 제목</th><th style="text-align:right">변동률</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
